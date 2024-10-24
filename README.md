@@ -10,23 +10,52 @@ The SATMWF (Super Application To Message With Friends) is the best software ever
 Basically, it has the server that is the primary instance that manages all client 
 connections and broadcasts the message from some client to the others.
 
+### Communication structure:
+
+All communication between client <-> server uses the same following simple structure:
+
+```
+ 0               1               2              
+ 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|            Length             |     Type      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                   Payload                     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+```
+
+The message must start with the `length` (2 bytes) of the `payload` following by 
+the message `type`. A message can have a empty `payload`, so `length` can be 0 in 
+that case.
+
+All message types:
+
+- [ ] `CON`: Request to connect;
+- [ ] `SCN`: Success to connect;
+- [ ] `FCN`: Fail to connect;
+- [ ] `DIS`: Request to disconnect;
+- [ ] `TAI`: _Taí?_;
+- [ ] `TOS`: _Tô sim_;
+- [ ] `MSG`: Chat message;
+
 ### Connection flow:
 
 ```
 +--------+                 +--------+
 | CLIENT |                 | SERVER |
 +--------+                 +--------+
-    ||     CAN I CONNECT?      ||
+    ||           CON           ||
     || ----------------------> ||      +--------------+
     ||                         || ---> | CHECK IF CAN |
     ||                         ||      +--------------+
-    ||                         ||  YES OR NOT ||
-    ||                         || <---------- ||
-    ||    [NOT] YOU CAN'T      ||
+    ||                         ||  YES OR NOT |
+    ||                         || <-----------|
+    ||       [NOT] FCN         ||
     || <---------------------- || [YES]  +--------------------+
     ||                         || -----> | NOTIFY ALL CLIENTS |
-    ||    [YES] SUCCESS        ||        +--------------------+
+    ||       [YES] SCN         ||        +--------------------+
     || <---------------------- ||
+    ||                         ||
     ||  CONNECTION STABLISHED  ||
     || <---------------------> ||
 ```
@@ -38,7 +67,7 @@ If client can't connect, just fail and show some message to know that the connec
 cannot be stablished. Otherwise, the server notify all clients that a new client 
 connected to the chat.
 
-After that, a successfuly connection has been stablished.
+After that, the connection has been stablished.
 
 ### Messaging flow:
 
@@ -46,13 +75,12 @@ After that, a successfuly connection has been stablished.
 +--------+                 +--------+                 
 | CLIENT |                 | SERVER |                 
 +--------+                 +--------+                 
-    ||         MESSAGE         ||                           
+    ||           MSG           ||                           
     || ----------------------> ||      +-----------+        
     ||                         || ---> | BROADCAST |        
-    ||          SENDED         ||      +-----------+
-    || <---------------------- ||                           
+    ||                         ||      +-----------+
+    ||                         ||                           
 ```
 
 Nothing more simple that, send a message to server e the server broadcast the 
-same message to all connected clients and reply back to who sent that the message 
-are successfuly sent.
+same message to all connected clients.
