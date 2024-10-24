@@ -3,6 +3,16 @@
 
 #include "protocol.h"
 
+void Message_headerFromBytes(struct Message *dest, u8 *buf) {
+    memcpy(&dest->length, buf, sizeof(u16));
+    memcpy(&dest->type, &buf[sizeof(u16)], sizeof(u8));
+}
+
+void Message_payloadFromBytes(struct Message *dest, u8 *buf) {
+    dest->payload = (u8 *) malloc(dest->length);
+    memcpy(dest->payload, &buf[sizeof(u16) + sizeof(u8)], dest->length);
+}
+
 void Message_fromBytes(struct Message *dest, u8 *buf) {
     memcpy(&dest->length, buf, sizeof(u16));
     memcpy(&dest->type, &buf[sizeof(u16)], sizeof(u8));

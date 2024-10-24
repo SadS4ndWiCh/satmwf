@@ -38,6 +38,9 @@ struct MSGMessage {
     char message[255];
 };
 
+void Message_headerFromBytes(struct Message *dest, u8 *buf);
+void Message_payloadFromBytes(struct Message *dest, u8 *buf);
+
 void Message_fromBytes(struct Message *dest, u8 *buf);
 void Message_toBytes(struct Message *src, u8 *dest);
 
