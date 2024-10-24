@@ -15,6 +15,11 @@
 #define MTOS 5
 #define MMSG 6
 
+/* Errors */
+#define EPROTLEN  0
+#define EPROTTYPE 1
+#define EPROTPAYL 2
+
 struct Message {
     u16 length;
     u8 type;
@@ -43,5 +48,7 @@ void Message_payloadFromBytes(struct Message *dest, u8 *buf);
 
 void Message_fromBytes(struct Message *dest, u8 *buf);
 void Message_toBytes(struct Message *src, u8 *dest);
+
+int Message_recv(int fd, struct Message *dest);
 
 #endif
