@@ -51,3 +51,14 @@ int Message_recv(int fd, struct Message *dest) {
     Message_payloadFromBytes(dest, buffer);
     return 0;
 }
+
+int Message_send(int fd, struct Message *msg) {
+    u8 buffer[MESSAGE_HEADER_LENGTH + MESSAGE_PAYLOAD_MAX];
+    Message_toBytes(msg, buffer);
+
+    if (send(fd, buffer, MESSAGE_HEADER_LENGTH + MESSAGE_PAYLOAD_MAX, 0) == -1) {
+        return -1;
+    }
+
+    return 0;
+}

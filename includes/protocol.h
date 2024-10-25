@@ -50,5 +50,6 @@ void Message_fromBytes(struct Message *dest, u8 *buf);
 void Message_toBytes(struct Message *src, u8 *dest);
 
 int Message_recv(int fd, struct Message *dest);
+int Message_send(int fd, struct Message *msg);
 
 #endif
