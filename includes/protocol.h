@@ -44,7 +44,8 @@ struct FCNMessage {
 
 struct MSGMessage {
     u8 author_id;
-    char message[255];
+    char nick[20];
+    char message[235];
 };
 
 void Message_headerFromBytes(struct Message *dest, u8 *buf);
