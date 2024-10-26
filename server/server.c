@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -105,7 +106,6 @@ int Server_handle_connection(struct Server *server) {
     return 0;
 }
 
-
 int Server_handle_message(struct Server *server, int fd) {
     struct Message msg;
     if (Message_recv(fd, &msg) == -1) {
@@ -120,8 +120,30 @@ int Server_handle_message(struct Server *server, int fd) {
     {
         printf("CON\n");
 
+        if (server->connected_count == SOCK_QUEUE_MAX) {
+            struct FCNMessage fcn = { .reason = "server is full." };
+            struct Message reply = {
+                .length  = sizeof(fcn),
+                .type    = MFCN,
+                .payload = (u8 *) &fcn,
+            };
+
+            if (Message_send(fd, &reply) == -1) {
+                fprintf(stderr, "%s:%d ERROR: fail to send FCN reply to: %d\n", __FILE__, __LINE__, fd);
+                return -1;
+            }
+
+            return 0;
+        }
+
         struct CONMessage *con = (struct CONMessage *) msg.payload;
         fprintf(stdout, "%s:%d INFO: new client '%s' joined to the server.\n", __FILE__, __LINE__, con->nick);
+
+        // Append client connection to room array
+        struct Conn conn = { .id = fd };
+        strcpy(conn.nick, con->nick);
+
+        server->room[server->connected_count++] = conn;
 
         struct SCNMessage scn = { (u8) fd };
         struct Message reply = {
@@ -143,6 +165,19 @@ int Server_handle_message(struct Server *server, int fd) {
     {
         printf("DIS\n");
 
+        for (int i = 0; i < server->connected_count; i++) {
+            if (server->room[i].id == fd) {
+                for (; i < server->connected_count; i++) {
+                    if (i == server->connected_count - 1) break;
+
+                    server->room[i] = server->room[i + 1];
+                }
+
+                server->connected_count--;
+                break;
+            }
+        }
+
         if (epoll_ctl(server->pollfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
             fprintf(stderr, "%s:%d ERROR: fail to remove client from poll: %d\n", __FILE__, __LINE__, fd);
             return -1;
@@ -162,6 +197,36 @@ int Server_handle_message(struct Server *server, int fd) {
 
         struct MSGMessage *chat_message = (struct MSGMessage *) msg.payload;
         fprintf(stdout, "%s:%d INFO: client %d sent: %s\n", __FILE__, __LINE__, chat_message->author_id, chat_message->message);
+
+        struct Conn sender = { .id = 0 };
+        for (int i = 0; i < server->connected_count; i++) {
+            struct Conn conn = server->room[i];
+            if (conn.id == fd) {
+                sender = conn;
+                break;
+            }
+        }
+
+        // TODO: a better code
+        if (sender.id == 0 && fd != 0) {
+            fprintf(stderr, "%s:%d ERROR: sender not found: %d\n", __FILE__, __LINE__, fd);
+            return -1;
+        }
+
+        strcpy(chat_message->nick, sender.nick);
+
+        struct Message broadcast = {
+            .length  = sizeof(struct MSGMessage),
+            .type    = MMSG,
+            .payload = (u8 *) chat_message
+        };
+
+        for (int i = 0; i < server->connected_count; i++) {
+            struct Conn conn = server->room[i];
+            if (Message_send(conn.id, &broadcast) == -1) {
+                fprintf(stderr, "%s:%d ERROR: fail to broadcast chat message to: %d\n", __FILE__, __LINE__, conn.id);
+            }
+        }
 
         return 0;
     }
