@@ -7,18 +7,22 @@
 #define MESSAGE_PAYLOAD_MAX 256
 
 /* Message Types */
-#define MCON 0
-#define MSCN 1
-#define MFCN 2
-#define MDIS 3
-#define MTAI 4
-#define MTOS 5
-#define MMSG 6
+
+#define MCON 0 // Request to connect
+#define MSCN 1 // Success to connect
+#define MFCN 2 // Fail to connect
+#define MDIS 3 // Request to disconnect
+#define MTAI 4 // Tái?
+#define MTOS 5 // Tô sim
+#define MMSG 6 // Receive / Send chat message
 
 /* Errors */
-#define EPROTLEN  0
-#define EPROTTYPE 1
-#define EPROTPAYL 2
+
+#define EPROTLEN  0 // Fail to parse message length
+#define EPROTTYPE 1 // Fail to parse message type
+#define EPROTPAYL 2 // Fail to parse message payload
+#define EPROTOVRF 3 // Message payload overflow
+#define EPROTSEND 4 // Fail to send message
 
 struct Message {
     u16 length;
@@ -46,7 +50,6 @@ struct MSGMessage {
 void Message_headerFromBytes(struct Message *dest, u8 *buf);
 void Message_payloadFromBytes(struct Message *dest, u8 *buf);
 
-void Message_fromBytes(struct Message *dest, u8 *buf);
 void Message_toBytes(struct Message *src, u8 *dest);
 
 int Message_recv(int fd, struct Message *dest);
