@@ -72,14 +72,14 @@ After that, the connection has been stablished.
 ### Messaging flow:
 
 ```
-+--------+                 +--------+                 
-| CLIENT |                 | SERVER |                 
-+--------+                 +--------+                 
-    ||           MSG           ||                           
-    || ----------------------> ||      +-----------+        
-    ||                         || ---> | BROADCAST |        
-    ||                         ||      +-----------+
-    ||                         ||                           
++--------+                 +--------+                   +---------+
+| CLIENT |                 | SERVER |                   | CLIENTS |
++--------+                 +--------+                   +---------+
+    ||           MSG           ||                           ||
+    || ----------------------> ||      +-----------+  MSG   ||
+    ||                         || ---> | BROADCAST | -----> ||
+    ||                         ||      +-----------+        ||
+    ||                         ||                           ||
 ```
 
 Nothing more simple that, send a message to server e the server broadcast the 
