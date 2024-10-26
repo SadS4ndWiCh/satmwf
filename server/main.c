@@ -1,45 +1,43 @@
+#include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/epoll.h>
 #include <netinet/in.h>
 
-#include "sock.h"
+#include "server.h"
 #include "protocol.h"
 
 int main(void) {
-    int server_fd = setup_sock(INADDR_LOOPBACK, 3000);
-
-    int client_fd = accept(server_fd, NULL, NULL);
-
-    u8 buffer[MESSAGE_HEADER_LENGTH + MESSAGE_PAYLOAD_MAX];
-    if (recv(client_fd, buffer, sizeof(u16), 0) == -1) {
-        printf("ERROR: failed to receive length.\n");
+    struct Server server = { .host = INADDR_LOOPBACK, .port = 3000 };
+    if (Server_init(&server) == -1) {
         return 1;
     }
 
-    if (recv(client_fd, &buffer[sizeof(u16)], sizeof(u8), 0) == -1) {
-        printf("ERROR: failed to receive type.\n");
-        return 1;
+    fprintf(stdout, "%s:%d INFO: server start running at :%d\n", __FILE__, __LINE__, server.port);
+
+    struct epoll_event events[SOCK_QUEUE_MAX];
+    while (1) {
+        int nfds = epoll_wait(server.pollfd, events, SOCK_QUEUE_MAX, -1);
+        if (nfds == -1) {
+            fprintf(stderr, "%s:%d ERROR: fail to get ready events.\n", __FILE__, __LINE__);
+            continue;
+        }
+
+        fprintf(stdout, "%s:%d INFO: receive server events: %d\n", __FILE__, __LINE__, nfds);
+
+        for (int i = 0; i < nfds; i++) {
+            struct epoll_event ev = events[i];
+            if (!(ev.events & EPOLLIN)) continue;
+
+            if (ev.data.fd == server.fd) {
+                Server_handle_connection(&server);
+            } else {
+                Server_handle_message(&server, ev.data.fd);
+            }
+        }
     }
 
-    u16 length = 0;
-    memcpy(&length, buffer, sizeof(u16));
-
-    if (recv(client_fd, &buffer[sizeof(u16) + sizeof(u8)], length, 0) == -1) {
-        printf("ERROR: failed to receive payload.\n");
-        return 1;
-    }
-
-    struct Message msg;
-    Message_fromBytes(&msg, buffer);
-
-    printf("Length: %d | Type: %#02x\n", msg.length, msg.type);
-
-    if (msg.type == MCON) {
-        struct CONMessage *con = (struct CONMessage *) msg.payload;
-        printf("Nick: %s\n", con->nick);
-    }
-
-    close(server_fd);
+    close(server.fd);
     return 0;
 }
