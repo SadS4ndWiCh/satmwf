@@ -214,7 +214,17 @@ int Client_send_message(struct Client *client) {
     strcpy(chat_message.nick, client->nick);
     fgets(chat_message.message, MESSAGE_PAYLOAD_MAX - sizeof(u8) - sizeof(chat_message.nick), stdin);
 
-    if (strcmp(chat_message.message, "exit\n") == 0) {
+    size_t mlen = strlen(chat_message.message);
+    if (mlen == 0) {
+        return 0;
+    }
+
+    // Remove the New Line (\n)
+    if (chat_message.message[mlen - 1] == '\n') {
+        chat_message.message[mlen - 1] = 0;
+    }
+
+    if (strcmp(chat_message.message, "exit") == 0) {
         return Client_exit_chat(client);
     }
 
