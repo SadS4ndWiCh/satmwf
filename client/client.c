@@ -174,10 +174,28 @@ int Client_handle_message(struct Client *client) {
     switch (msg.type) {
     case MMSG:
     {
+        printf("MSG\n");
+
         struct MSGMessage *chat_message = (struct MSGMessage *) msg.payload;
         printf("(%s) ~> ", chat_message->nick);
 
         printf("%s\n", chat_message->message);
+    } break;
+    case MCON:
+    {
+        printf("CON\n");
+
+        struct CONMessage *con = (struct CONMessage *) msg.payload;
+
+        printf("%s:%d INFO: %s joined the server\n", __FILE__, __LINE__, con->nick);
+    } break;
+    case MDIS:
+    {
+        printf("DIS\n");
+
+        struct DISMessage *dis = (struct DISMessage *) msg.payload;
+
+        printf("%s:%d INFO: %s left the server\n", __FILE__, __LINE__, dis->nick);
     } break;
     }
 

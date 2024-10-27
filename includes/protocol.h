@@ -42,6 +42,10 @@ struct FCNMessage {
     char reason[MESSAGE_PAYLOAD_MAX];
 };
 
+struct DISMessage {
+    char nick[20];
+};
+
 struct MSGMessage {
     u8 author_id;
     char nick[20];

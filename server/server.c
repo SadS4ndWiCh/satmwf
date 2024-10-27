@@ -147,14 +147,28 @@ int Server_handle_message(struct Server *server, int fd) {
 
         fprintf(stdout, "%s:%d INFO: sent SCN message to: %d.\n", __FILE__, __LINE__, fd);
 
+        // Notify all clients that a new client joined
+        for (int i = 0; i < server->connected_count; i++) {
+            struct Conn client = server->room[i];
+
+            if (Message_send(client.id, sizeof(struct CONMessage), MCON, (u8 *) con) == -1) {
+                fprintf(stderr, "%s:%d WARN: fail to notify client %s that a new client joined.\n", __FILE__, __LINE__, client.nick);
+            }
+        }
+
         return 0;
     } break;
     case MDIS:
     {
         printf("DIS\n");
 
+        struct DISMessage dis;
         for (int i = 0; i < server->connected_count; i++) {
-            if (server->room[i].id == fd) {
+            struct Conn client = server->room[i];
+
+            if (client.id == fd) {
+                strcpy(dis.nick, client.nick);
+
                 for (; i < server->connected_count; i++) {
                     if (i == server->connected_count - 1) break;
 
@@ -177,6 +191,15 @@ int Server_handle_message(struct Server *server, int fd) {
         }
 
         fprintf(stdout, "%s:%d INFO: client was disconnected: %d\n", __FILE__, __LINE__, fd);
+
+        for (int i = 0; i < server->connected_count; i++) {
+            struct Conn client = server->room[i];
+
+            if (Message_send(client.id, sizeof(struct DISMessage), MDIS, (u8 *) &dis) == -1) {
+                fprintf(stderr, "%s:%d ERROR: fail to notify client '%s' that the client '%s' exit.\n", __FILE__, __LINE__, client.nick, dis.nick);
+            }
+        }
+
         return 0;
     } break;
     case MMSG:
