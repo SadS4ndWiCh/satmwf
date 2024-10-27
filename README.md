@@ -40,9 +40,15 @@ All message types:
 
 #### CON Message
 
-A `CON` message is sent by a client to join the server. Just after the `CON` message 
-was successfuly replyed with `SCN`, the client is added to room list and can start 
-sending `MSG` messages to the server broadcast to other clients.
+A `CON` message can be sent both by client and server. 
+
+In client POV, if he send the message, mean the client want to join the server. 
+Just after the `CON` message was successfuly replyed with `SCN`, the client is added 
+to room list and can start sending `MSG` messages to the server broadcast to other 
+clients. 
+
+In server POV, he send the `CON` message to notify the clients that a new client 
+joined the server.
 
 ```c
 struct CONMessage {
@@ -98,7 +104,9 @@ The server sends the `TAI` message and the client must reply with `TOS` in at le
 #### MSG Message
 
 A little confusing the names, but a `MSG` message can be sent by both server and 
-client. In client POV, if he send, means the client want to send a new message. In 
+client. 
+
+In client POV, if he send, means the client want to send a new message. In 
 other hand, when the server send the `MSG` message, is to tell the client that a 
 new message arrive.
 
@@ -111,8 +119,7 @@ struct MSGMessage {
 ```
 
 In `MSG` message is require specifies the `author_id` and `nick` to validate if 
-client exists in the room and the `nick` is to help UI be able to shows who send 
-the message without using `author_id`;
+client exists in the room and to help UI be able to shows who send the message.
 
 ### Connection flow:
 
