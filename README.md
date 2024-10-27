@@ -61,8 +61,10 @@ nick name must have until 20 bytes (20 characters).
 
 #### SCN Message
 
-A `SCN` message is the Success to Connect reply message sent by the server to the 
-client when client was successfuly joined to the server. 
+A `SCN` can only be sent by the server as an reply to `CON`.
+
+The server reply the `CON` message with `SCN` if the client successfuly joined the 
+chat.
 
 ```c
 struct SCNMessage {
@@ -74,9 +76,10 @@ The message payload contains the `id` defined to the client.
 
 #### FCN Message
 
-A `FCN` message is the Fail to Connect reply message sent by the server to the 
-client when client wasn't able to join to the server. A reason to don't be able 
-to join is present in payload.
+A `FCN` can only be sent by the server as an reply to `CON`.
+
+The server reply the `CON` message with `FCN` if the client was't able to join the 
+chat.
 
 ```c
 struct FCNMessage {
@@ -84,14 +87,27 @@ struct FCNMessage {
 };
 ```
 
-Reasons:
+The message payload contains the `reason` to client don't be able to join the chat. 
+The reasons are:
  - `RSNSERVERFULL` The server is already full;
  - `RSNINTERNAL` An unexpected error occour in server;
 
 #### DIS Message
 
-A `DIS` message is only sent by the client to the server when client wants to 
-disconnect from the server.
+A `DIS` message can be sent both by client and server. 
+
+In client POV, the message is sent to request to be disconnected from the server. 
+In that way, the server can handle a properly disconnection and notify all other 
+clients that one client exit.
+
+```c
+struct DISMessage {
+    char nick[20];
+};
+```
+
+In server POV, the message is sent to notify all clients that someone exit from 
+the chat.
 
 #### TAI and TOS Message
 
@@ -103,10 +119,9 @@ The server sends the `TAI` message and the client must reply with `TOS` in at le
 
 #### MSG Message
 
-A little confusing the names, but a `MSG` message can be sent by both server and 
-client. 
+A `MSG` message can be sent both by client and server. 
 
-In client POV, if he send, means the client want to send a new message. In 
+In client POV, the message is sent when the client sends a new chat message. In 
 other hand, when the server send the `MSG` message, is to tell the client that a 
 new message arrive.
 
