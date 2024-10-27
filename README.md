@@ -139,23 +139,23 @@ client exists in the room and to help UI be able to shows who send the message.
 ### Connection flow:
 
 ```
-+--------+                 +--------+
-| CLIENT |                 | SERVER |
-+--------+                 +--------+
-    ||           CON           ||
-    || ----------------------> ||      +--------------+
-    ||                         || ---> | CHECK IF CAN |
-    ||                         ||      +--------------+
-    ||                         ||  YES OR NOT |
-    ||                         || <-----------|
-    ||       [NOT] FCN         ||
-    || <---------------------- || [YES]  +--------------------+
-    ||                         || -----> | NOTIFY ALL CLIENTS |
-    ||       [YES] SCN         ||        +--------------------+
-    || <---------------------- ||
-    ||                         ||
-    ||  CONNECTION STABLISHED  ||
-    || <---------------------> ||
++--------+                 +--------+                             +---------+
+| CLIENT |                 | SERVER |                             | CLIENTS |
++--------+                 +--------+                             +---------+
+    ||           CON           ||                                      ||
+    || ----------------------> ||      +--------------+                ||
+    ||                         || ---> | Check if can |                ||
+    ||                         ||      +--------------+                ||
+    ||                         ||  YES OR NOT |                        ||
+    ||                         || <-----------|                        ||
+    ||       [NOT] FCN         ||                                      ||
+    || <---------------------- || [YES]  +--------------------+  CON   ||
+    ||                         || -----> | Notify all clients | -----> ||
+    ||       [YES] SCN         ||        +--------------------+        ||
+    || <---------------------- ||                                      ||
+    ||                         ||                                      ||
+    ||  Connection stablished  ||                                      ||
+    || <---------------------> ||                                      ||
 ```
 
 First the client asks if he can connect. In this basic chat, the only validation 
@@ -175,13 +175,32 @@ After that, the connection has been stablished.
 +--------+                 +--------+                   +---------+
     ||           MSG           ||                           ||
     || ----------------------> ||      +-----------+  MSG   ||
-    ||                         || ---> | BROADCAST | -----> ||
+    ||                         || ---> | Broadcast | -----> ||
     ||                         ||      +-----------+        ||
     ||                         ||                           ||
 ```
 
 Nothing more simple that, send a message to server e the server broadcast the 
 same message to all connected clients.
+
+### Disconnection flow:
+
+```
++--------+                 +--------+                             +---------+
+| CLIENT |                 | SERVER |                             | CLIENTS |
++--------+                 +--------+                             +---------+
+    ||           DIS           ||                                      ||
+    || ----------------------> ||                                      ||
+    ||                         ||        +--------------------+  DIS   ||
+    ||                         || -----> | Notify all clients | -----> ||
+    ||                         ||        +--------------------+        ||
+    ||       Disconnected      ||                                      ||
+    || <---------/ /---------> ||                                      ||
+```
+
+The _Disconnection Flow_ acts like the _Messaging flow_ in first glance. In second 
+glance stay the same. Basically, the client sends the request to disconnect to the 
+server close the connection and notify all other clients that someone left the chat.
 
 ## 🎳 Building
 
