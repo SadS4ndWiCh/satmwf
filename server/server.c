@@ -121,11 +121,13 @@ int Server_handle_message(struct Server *server, int fd) {
         printf("CON\n");
 
         if (server->connected_count == SOCK_QUEUE_MAX) {
-            struct FCNMessage fcn = { .reason = "server is full." };
+            struct FCNMessage fcn = { .reason = RSNSERVERFULL };
             if (Message_send(fd, sizeof(fcn), MFCN, (u8 *) &fcn) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to send FCN reply to: %d\n", __FILE__, __LINE__, fd);
                 return -1;
             }
+
+            fprintf(stdout, "%s:%d INFO: fail to client join the server due it's full.\n", __FILE__, __LINE__);
 
             return 0;
         }

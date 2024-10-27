@@ -24,6 +24,11 @@
 #define EPROTOVRF 3 // Message payload overflow
 #define EPROTSEND 4 // Fail to send message
 
+/* FCN Reasons */
+
+#define RSNSERVERFULL 0 // The server is already full
+#define RSNINTERNAL   1 // An unexpected error occour in server
+
 struct Message {
     u16 length;
     u8 type;
@@ -39,7 +44,7 @@ struct SCNMessage {
 };
 
 struct FCNMessage {
-    char reason[MESSAGE_PAYLOAD_MAX];
+    u8 reason;
 };
 
 struct DISMessage {

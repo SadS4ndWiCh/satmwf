@@ -113,7 +113,14 @@ int Client_join_chat(struct Client *client) {
     if (replymsg.type == MFCN) {
         struct FCNMessage *fcn = (struct FCNMessage *) replymsg.payload;
 
-        fprintf(stderr, "%s:%d ERROR: fail to join the server: %s\n", __FILE__, __LINE__, fcn->reason);
+        switch (fcn->reason) {
+        case RSNSERVERFULL:
+            fprintf(stderr, "%s:%d ERROR: fail to join the server: server is full!\n", __FILE__, __LINE__);
+            break;
+        default:
+            fprintf(stderr, "%s:%d ERROR: fail to join the server\n", __FILE__, __LINE__);
+            break;
+        }
 
         return -1;
     }
