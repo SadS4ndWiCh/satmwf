@@ -122,13 +122,7 @@ int Server_handle_message(struct Server *server, int fd) {
 
         if (server->connected_count == SOCK_QUEUE_MAX) {
             struct FCNMessage fcn = { .reason = "server is full." };
-            struct Message reply = {
-                .length  = sizeof(fcn),
-                .type    = MFCN,
-                .payload = (u8 *) &fcn,
-            };
-
-            if (Message_send(fd, &reply) == -1) {
+            if (Message_send(fd, sizeof(fcn), MFCN, (u8 *) &fcn) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to send FCN reply to: %d\n", __FILE__, __LINE__, fd);
                 return -1;
             }
@@ -146,13 +140,7 @@ int Server_handle_message(struct Server *server, int fd) {
         server->room[server->connected_count++] = conn;
 
         struct SCNMessage scn = { (u8) fd };
-        struct Message reply = {
-            .length  = sizeof(scn),
-            .type    = MSCN,
-            .payload = (u8 *) &scn
-        };
-
-        if (Message_send(fd, &reply) == -1) {
+        if (Message_send(fd, sizeof(scn), MSCN, (u8 *) &scn) == -1) {
             fprintf(stderr, "%s:%d ERROR: fail to send SCN reply to: %d.\n", __FILE__, __LINE__, fd);
             return -1;
         }
@@ -215,15 +203,9 @@ int Server_handle_message(struct Server *server, int fd) {
 
         strcpy(chat_message->nick, sender.nick);
 
-        struct Message broadcast = {
-            .length  = sizeof(struct MSGMessage),
-            .type    = MMSG,
-            .payload = (u8 *) chat_message
-        };
-
         for (int i = 0; i < server->connected_count; i++) {
             struct Conn conn = server->room[i];
-            if (Message_send(conn.id, &broadcast) == -1) {
+            if (Message_send(conn.id, sizeof(struct MSGMessage), MMSG, (u8 *) chat_message) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to broadcast chat message to: %d\n", __FILE__, __LINE__, conn.id);
             }
         }

@@ -68,13 +68,7 @@ int Client_join_chat(struct Client *client) {
     struct CONMessage con;
     strcpy(con.nick, client->nick);
 
-    struct Message conmsg = {
-        .length  = sizeof(con),
-        .type    = MCON,
-        .payload = (u8 *) &con
-    };
-
-    if (Message_send(client->fd, &conmsg) == -1) {
+    if (Message_send(client->fd, sizeof(con), MCON, (u8 *) &con) == -1) {
         switch (errno) {
         case EPROTOVRF:
             fprintf(stderr, "%s:%d ERROR: sent a too long message.\n", __FILE__, __LINE__);
@@ -133,13 +127,7 @@ int Client_join_chat(struct Client *client) {
 }
 
 int Client_exit_chat(struct Client *client) {
-    struct Message msg = {
-        .length  = 0,
-        .type    = MDIS,
-        .payload = 0,
-    };
-
-    if (Message_send(client->fd, &msg) == -1) {
+    if (Message_send(client->fd, 0, MDIS, NULL) == -1) {
         switch (errno) {
         case EPROTOVRF:
             fprintf(stderr, "%s:%d ERROR: send a too long message.\n", __FILE__, __LINE__);
@@ -205,13 +193,7 @@ int Client_send_message(struct Client *client) {
         return Client_exit_chat(client);
     }
 
-    struct Message msg = {
-        .length  = sizeof(chat_message),
-        .type    = MMSG,
-        .payload = (u8 *) &chat_message,
-    };
-
-    if (Message_send(client->fd, &msg) == -1) {
+    if (Message_send(client->fd, sizeof(chat_message), MMSG, (u8 *) &chat_message) == -1) {
         switch (errno) {
         case EPROTOVRF:
             fprintf(stderr, "%s:%d ERROR: send a too long message.\n", __FILE__, __LINE__);

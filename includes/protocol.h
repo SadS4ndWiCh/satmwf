@@ -54,6 +54,6 @@ void Message_payloadFromBytes(struct Message *dest, u8 *buf);
 void Message_toBytes(struct Message *src, u8 *dest);
 
 int Message_recv(int fd, struct Message *dest);
-int Message_send(int fd, struct Message *msg);
+int Message_send(int fd, u16 length, u8 type, u8 *payload);
 
 #endif

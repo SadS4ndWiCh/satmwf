@@ -58,18 +58,24 @@ int Message_recv(int fd, struct Message *dest) {
     return 0;
 }
 
-int Message_send(int fd, struct Message *msg) {
+int Message_send(int fd, u16 length, u8 type, u8 *payload) {
     errno = 0;
+    
+    struct Message msg = {
+        .length  = length,
+        .type    = type,
+        .payload = payload 
+    };
 
-    if (msg->length > MESSAGE_PAYLOAD_MAX) {
+    if (msg.length > MESSAGE_PAYLOAD_MAX) {
         errno = EPROTOVRF;
         return -1;
     }
 
-    size_t buffer_len = MESSAGE_HEADER_LENGTH + msg->length;
+    size_t buffer_len = MESSAGE_HEADER_LENGTH + msg.length;
     u8 *buffer = (u8 *) malloc(buffer_len);
 
-    Message_toBytes(msg, buffer);
+    Message_toBytes(&msg, buffer);
 
     if (send(fd, buffer, buffer_len, 0) == -1) {
         errno = EPROTSEND;
