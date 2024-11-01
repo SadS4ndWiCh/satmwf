@@ -94,11 +94,10 @@ The reasons are:
 
 #### DIS Message
 
-A `DIS` message can be sent both by client and server. 
+A `DIS` message can be sent only by the server. 
 
-In client POV, the message is sent to request to be disconnected from the server. 
-In that way, the server can handle a properly disconnection and notify all other 
-clients that one client exit.
+When a client disconnect, the server sends the `DIS` message to all other clients 
+to notify that a client was left from the chat.
 
 ```c
 struct DISMessage {
@@ -106,8 +105,7 @@ struct DISMessage {
 };
 ```
 
-In server POV, the message is sent to notify all clients that someone exit from 
-the chat.
+The message payload contains the nick from client that left.
 
 #### TAI and TOS Message
 
@@ -189,18 +187,16 @@ same message to all connected clients.
 +--------+                 +--------+                             +---------+
 | CLIENT |                 | SERVER |                             | CLIENTS |
 +--------+                 +--------+                             +---------+
-    ||           DIS           ||                                      ||
-    || ----------------------> ||                                      ||
+    ||       Disconnected      ||                                      ||
+    || <---------/ /---------> ||                                      ||
     ||                         ||        +--------------------+  DIS   ||
     ||                         || -----> | Notify all clients | -----> ||
     ||                         ||        +--------------------+        ||
-    ||       Disconnected      ||                                      ||
-    || <---------/ /---------> ||                                      ||
+    ||                         ||                                      ||
 ```
 
-The _Disconnection Flow_ acts like the _Messaging flow_ in first glance. In second 
-glance stay the same. Basically, the client sends the request to disconnect to the 
-server close the connection and notify all other clients that someone left the chat.
+The server knows when a client closes the connection and notify all other clients 
+that a client left the server.
 
 ## 🎳 Building
 

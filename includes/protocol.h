@@ -18,11 +18,12 @@
 
 /* Errors */
 
-#define EPROTLEN  0 // Fail to parse message length
-#define EPROTTYPE 1 // Fail to parse message type
-#define EPROTPAYL 2 // Fail to parse message payload
-#define EPROTOVRF 3 // Message payload overflow
-#define EPROTSEND 4 // Fail to send message
+#define EPROTLEN   0 // Fail to parse message length
+#define EPROTTYPE  1 // Fail to parse message type
+#define EPROTPAYL  2 // Fail to parse message payload
+#define EPROTOVRF  3 // Message payload overflow
+#define EPROTSEND  4 // Fail to send message
+#define EPROTEMPTY 5 // Receives an empty data (Possible disconnection)
 
 /* FCN Reasons */
 

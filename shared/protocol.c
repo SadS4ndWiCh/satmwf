@@ -30,7 +30,13 @@ int Message_recv(int fd, struct Message *dest) {
     errno = 0;
 
     u8 buffer[MESSAGE_HEADER_LENGTH + MESSAGE_PAYLOAD_MAX];
-    if (recv(fd, buffer, sizeof(u16), 0) == -1) {
+    int nbytes = recv(fd, buffer, sizeof(u16), 0);
+    if (nbytes == 0) {
+        errno = EPROTEMPTY;
+        return -1;
+    }
+    
+    if (nbytes == -1) {
         errno = EPROTLEN;
         return -1;
     }

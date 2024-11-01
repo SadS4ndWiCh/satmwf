@@ -109,8 +109,14 @@ int Server_handle_connection(struct Server *server) {
 int Server_handle_message(struct Server *server, int fd) {
     struct Message msg;
     if (Message_recv(fd, &msg) == -1) {
-        fprintf(stderr, "%s:%d ERROR: fail to receive message from fd: %d", __FILE__, __LINE__, fd);
-        return -1;
+        if (errno == EPROTEMPTY) {
+            msg.length  = 0;
+            msg.type    = MDIS;
+            msg.payload = NULL;
+        } else {
+            fprintf(stderr, "%s:%d ERROR: fail to receive message from fd: %d", __FILE__, __LINE__, fd);
+            return -1;
+        }
     }
 
     fprintf(stdout, "%s:%d INFO: receives a message: ", __FILE__, __LINE__);

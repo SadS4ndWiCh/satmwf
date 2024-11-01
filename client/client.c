@@ -133,27 +133,6 @@ int Client_join_chat(struct Client *client) {
     return 0;
 }
 
-int Client_exit_chat(struct Client *client) {
-    if (Message_send(client->fd, 0, MDIS, NULL) == -1) {
-        switch (errno) {
-        case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: send a too long message.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTSEND:
-            fprintf(stderr, "%s:%d ERROR: fail to send chat message.\n", __FILE__, __LINE__);
-            return -1;
-        default:
-            fprintf(stderr, "%s:%d ERROR: something went wrong.\n", __FILE__, __LINE__);
-            return -1;
-        }
-    }
-
-    fprintf(stdout, "%s:%d INFO: exit from the chat.\n", __FILE__, __LINE__);
-    exit(0);
-
-    return 0;
-}
-
 int Client_handle_message(struct Client *client) {
     struct Message msg;
     if (Message_recv(client->fd, &msg) == -1) {
@@ -222,10 +201,6 @@ int Client_send_message(struct Client *client) {
     // Remove the New Line (\n)
     if (chat_message.message[mlen - 1] == '\n') {
         chat_message.message[mlen - 1] = 0;
-    }
-
-    if (strcmp(chat_message.message, "exit") == 0) {
-        return Client_exit_chat(client);
     }
 
     if (Message_send(client->fd, sizeof(chat_message), MMSG, (u8 *) &chat_message) == -1) {
