@@ -8,11 +8,12 @@ The SATMWF (Super Application To Message With Friends) is the best software ever
 ## 🏑 How it works
 
 Basically, it has the server that is the primary instance that manages all client 
-connections and broadcasts the message from some client to the others.
+connections and broadcasts the message sent by some client to others.
 
 ### Communication structure:
 
-All communication between client <-> server uses the same following simple structure:
+The entire communication between client <-> server is event based. Every event uses 
+the following structure:
 
 ```
  0               1               2              
@@ -24,192 +25,164 @@ All communication between client <-> server uses the same following simple struc
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ```
 
-The message must start with the `length` (2 bytes) of the `payload` following by 
-the message `type`. A message can have a empty `payload`, so `length` can be 0 in 
-that case.
+For a very simple approach, it only contains the `Length` (Payload length), `Type` 
+(Event type) and the `Payload` from the event.
 
-All message types:
+The `Length` field is a 2 bytes unsigned integer which range is `0-65535`. It means 
+that the payload can have a limit of 65535 bytes. An event can have a `0` length 
+payload, which means an _empty event_.
 
-- [x] `CON`: Request to connect;
-- [x] `SCN`: Success to connect;
-- [x] `FCN`: Fail to connect;
-- [x] `DIS`: Request to disconnect;
-- [ ] `TAI`: _Taí?_;
-- [ ] `TOS`: _Tô sim_;
-- [x] `MSG`: Chat message;
+The `Type` field is a 1 byte unsigned integer. Each event type is represented by 
+a code. All available events are:
 
-#### CON Message
+- `CON`: 0x00;
+- `SCN`: 0x01;
+- `FCN`: 0x02;
+- `MSG`: 0x03;
+- `DIS`: 0x04;
 
-A `CON` message can be sent both by client and server. 
+The `Payload` field have a variable length defined in `Length` field.
 
-In client POV, if he send the message, mean the client want to join the server. 
-Just after the `CON` message was successfuly replyed with `SCN`, the client is added 
-to room list and can start sending `MSG` messages to the server broadcast to other 
-clients. 
+### Event type payload structs
 
-In server POV, he send the `CON` message to notify the clients that a new client 
-joined the server.
+#### CON (Connect)
 
 ```c
-struct CONMessage {
-    char nick[20];
+struct CONEvent {
+    nick_t nick;
 };
 ```
 
-The `CON` message allow send a payload with a nick name as an alias to their id. The 
-nick name must have until 20 bytes (20 characters).
+The `CON` event can be sent both by client and server. 
 
-#### SCN Message
+The client sends it to request to join the chat and server sends to notify that 
+someone joined the chat. In both cases, the `nick` payload is sent.
 
-A `SCN` can only be sent by the server as an reply to `CON`.
-
-The server reply the `CON` message with `SCN` if the client successfuly joined the 
-chat.
+#### SCN (Success to Connect)
 
 ```c
-struct SCNMessage {
-    u8 id;
+struct SCNEvent {
+    clientid_t id;
 };
 ```
 
-The message payload contains the `id` defined to the client.
+The `SCN` event can only be sent by the server.
 
-#### FCN Message
+When a client was able to join the chat, the server reply the `CON` event with 
+given `id`. The client must store that `id` to know who he is.
 
-A `FCN` can only be sent by the server as an reply to `CON`.
-
-The server reply the `CON` message with `FCN` if the client was't able to join the 
-chat.
+#### FCN (Fail to Connect)
 
 ```c
-struct FCNMessage {
+struct SCNEvent {
     u8 reason;
 };
 ```
 
-The message payload contains the `reason` to client don't be able to join the chat. 
-The reasons are:
- - `RSNSERVERFULL` The server is already full;
- - `RSNINTERNAL` An unexpected error occour in server;
+The `FCN` event can only be sent by the server.
 
-#### DIS Message
+When a client wasn't able to join the chat, the server reply the `CON` event with 
+the reason to don't be able to join. The reasons can be:
 
-A `DIS` message can be sent only by the server. 
+- `ECONSAMENAME`: The nick was already taken;
+- `ECONUNEXPECT`: Some unexpected error occour;
 
-When a client disconnect, the server sends the `DIS` message to all other clients 
-to notify that a client was left from the chat.
+#### MSG (Message)
 
 ```c
-struct DISMessage {
-    char nick[20];
+struct MSGEvent {
+    clientid_t from;
+    message_t message;
 };
 ```
 
-The message payload contains the nick from client that left.
+The `MSG` event can be sent both by the client and server.
 
-#### TAI and TOS Message
+The client sends it to send a new message and the sends to notify that a new message 
+was received.
 
-I'm an idiot, so I don't want PING and PONG. `TAI` and `TOS` mean something like 
-`Are there?` and `I am` respectively in Portuguese.
+When the client sends the message, the `from` field is ignored by the server, so 
+client don't to set it. But the server needs to fill it clients know what message 
+they sent.
 
-The server sends the `TAI` message and the client must reply with `TOS` in at least 
-10 seconds, otherwise, the server consider the client disconnected.
-
-#### MSG Message
-
-A `MSG` message can be sent both by client and server. 
-
-In client POV, the message is sent when the client sends a new chat message. In 
-other hand, when the server send the `MSG` message, is to tell the client that a 
-new message arrive.
+#### DIS (Disconnection)
 
 ```c
-struct MSGMessage {
-    u8 author_id;
-    char nick[20];
-    char message[235]
+struct DISEvent {
+    nick_t nick;
 };
 ```
 
-In `MSG` message is require specifies the `author_id` and `nick` to validate if 
-client exists in the room and to help UI be able to shows who send the message.
+The `DIS` event can only be sent by the server.
 
-### Connection flow:
+When a client closes the connection with the server (or in other words, left from 
+the chat), the server notify that someone left from the chat.
 
-```
-+--------+                 +--------+                             +---------+
-| CLIENT |                 | SERVER |                             | CLIENTS |
-+--------+                 +--------+                             +---------+
-    ||           CON           ||                                      ||
-    || ----------------------> ||      +--------------+                ||
-    ||                         || ---> | Check if can |                ||
-    ||                         ||      +--------------+                ||
-    ||                         ||  YES OR NOT |                        ||
-    ||                         || <-----------|                        ||
-    ||       [NOT] FCN         ||                                      ||
-    || <---------------------- || [YES]  +--------------------+  CON   ||
-    ||                         || -----> | Notify all clients | -----> ||
-    ||       [YES] SCN         ||        +--------------------+        ||
-    || <---------------------- ||                                      ||
-    ||                         ||                                      ||
-    ||  Connection stablished  ||                                      ||
-    || <---------------------> ||                                      ||
-```
+### Flow charts
 
-First the client asks if he can connect. In this basic chat, the only validation 
-is if server is already full. 
-
-If client can't connect, just fail and show some message to know that the connection 
-cannot be stablished. Otherwise, the server notify all clients that a new client 
-connected to the chat.
-
-After that, the connection has been stablished.
-
-### Messaging flow:
+#### Join chat flow
 
 ```
-+--------+                 +--------+                   +---------+
-| CLIENT |                 | SERVER |                   | CLIENTS |
-+--------+                 +--------+                   +---------+
-    ||           MSG           ||                           ||
-    || ----------------------> ||      +-----------+  MSG   ||
-    ||                         || ---> | Broadcast | -----> ||
-    ||                         ||      +-----------+        ||
-    ||                         ||                           ||
++ ------ +                     + ------ +                        + ------- +
+| Client |                     | SERVER |                        | CLIENTS |
++ ------ +                     + ------ +                        + ------- +
+    ||           CON               ||                                 ||
+    || --------------------------> ||       + --------- +             ||
+    ||  Request to join the chat   || ----> | Can join? |             ||
+    ||                             ||       + --------- +             ||
+    ||           FCN               ||    <NO> |       | <YES>         ||
+    || <-------------------------- || ------- +       |               ||
+    --    Fail to join the chat    --                 |               || 
+    ||                             ||                 |               ||
+    ||           SCN               ||                 |               ||
+    || <-------------------------- || --------------- +               ||
+    ||   Success to join the chat  ||                                 ||
+    ||                             ||              CON                ||
+    ||                             || ------------------------------> ||
+    ||                             ||     Someone joined the chat     ||
+    ||                             ||                                 ||
 ```
 
-Nothing more simple that, send a message to server e the server broadcast the 
-same message to all connected clients.
-
-### Disconnection flow:
+#### Messaging flow
 
 ```
-+--------+                 +--------+                             +---------+
-| CLIENT |                 | SERVER |                             | CLIENTS |
-+--------+                 +--------+                             +---------+
-    ||       Disconnected      ||                                      ||
-    || <---------/ /---------> ||                                      ||
-    ||                         ||        +--------------------+  DIS   ||
-    ||                         || -----> | Notify all clients | -----> ||
-    ||                         ||        +--------------------+        ||
-    ||                         ||                                      ||
++ ------ +                     + ------ +                        + ------- +
+| Client |                     | SERVER |                        | CLIENTS |
++ ------ +                     + ------ +                        + ------- +
+    ||           MSG               ||                                 ||
+    || --------------------------> ||              MSG                ||
+    ||     Send a new message      || ------------------------------> ||
+    ||                             ||        New message arrive       ||
+    ||                             ||                                 ||
 ```
 
-The server knows when a client closes the connection and notify all other clients 
-that a client left the server.
+#### Disconnection flow
+
+```
++ ------ +                     + ------ +                        + ------- +
+| Client |                     | SERVER |                        | CLIENTS |
++ ------ +                     + ------ +                        + ------- +
+    ||                             ||                                 ||
+    || <-----------//------------> ||              DIS                ||
+    ||      Connection closed      || ------------------------------> ||
+    ||                             ||       Client left the chat      ||
+    ||                             ||                                 ||
+```
 
 ## 🎳 Building
 
-First, make sure you have the `make` command installed. Also, I'm using the `cc` 
-compiler, in which many system already have, but if your not, just install it or 
-use any of your preference and update the `CC` variable in `Makefile`.
+First, make sure you have the make command installed. Also, I'm using the `cc` compiler, 
+in which many system already have, but if not, just install it or use any of your 
+preference and update the `CC` variable in `Makefile`.
 
 To build both server and client at once, just run the command:
+
 ```sh
 $ make
 ```
 
 Otherwise, if you want to build each one individually:
+
 ```sh
 $ make server
 $ make client
