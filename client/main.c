@@ -10,7 +10,7 @@
 
 int main(int argc, char **argv) {
     struct Client client = {
-        .nick = "guest1280",
+        .nick = DEFAULT_NICK,
         .host = INADDR_LOOPBACK,
         .port = 3000
     };
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
             if (!(ev.events & EPOLLIN)) continue;
 
             if (ev.data.fd == client.fd) {
-                Client_handle_message(&client);
+                Client_handle_event(&client);
             } else if (ev.data.fd == STDIN_FILENO) {
                 Client_send_message(&client);
             }

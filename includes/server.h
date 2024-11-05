@@ -23,6 +23,6 @@ struct Server {
 
 int Server_init(struct Server *server);
 int Server_handle_connection(struct Server *server);
-int Server_handle_message(struct Server *server, int fd);
+int Server_handle_event(struct Server *server, int fd);
 
 #endif

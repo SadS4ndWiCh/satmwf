@@ -5,19 +5,19 @@
 
 #include "protocol.h"
 
-void Message_headerFromBytes(struct Message *dest, u8 *buf) {
+void Event_headerFromBytes(struct Event *dest, u8 *buf) {
     memcpy(&dest->length, buf, sizeof(u16));
     memcpy(&dest->type, &buf[sizeof(u16)], sizeof(u8));
 }
 
-void Message_payloadFromBytes(struct Message *dest, u8 *buf) {
+void Event_payloadFromBytes(struct Event *dest, u8 *buf) {
     if (dest->length == 0) return;
 
     dest->payload = (u8 *) malloc(dest->length);
     memcpy(dest->payload, &buf[sizeof(u16) + sizeof(u8)], dest->length);
 }
 
-void Message_toBytes(struct Message *src, u8 *dest) {
+void Event_toBytes(struct Event *src, u8 *dest) {
     memcpy(dest, &src->length, sizeof(u16));
     memcpy(&dest[sizeof(u16)], &src->type, sizeof(u8));
 
@@ -26,18 +26,18 @@ void Message_toBytes(struct Message *src, u8 *dest) {
     }
 }
 
-int Message_recv(int fd, struct Message *dest) {
+int Event_recv(int fd, struct Event *dest) {
     errno = 0;
 
-    u8 buffer[MESSAGE_HEADER_LENGTH + MESSAGE_PAYLOAD_MAX];
+    u8 buffer[EVENT_HEADER_LENGTH + EVENT_PAYLOAD_LENGTH];
     int nbytes = recv(fd, buffer, sizeof(u16), 0);
     if (nbytes == 0) {
-        errno = EPROTEMPTY;
+        errno = EPROTEMPT;
         return -1;
     }
     
     if (nbytes == -1) {
-        errno = EPROTLEN;
+        errno = EPROTLENT;
         return -1;
     }
 
@@ -46,11 +46,11 @@ int Message_recv(int fd, struct Message *dest) {
         return -1;
     }
 
-    Message_headerFromBytes(dest, buffer);
+    Event_headerFromBytes(dest, buffer);
 
     if (dest->length == 0) return 0;
 
-    if (dest->length > MESSAGE_PAYLOAD_MAX) {
+    if (dest->length > EVENT_PAYLOAD_LENGTH) {
         errno = EPROTOVRF;
         return -1;
     }
@@ -60,28 +60,28 @@ int Message_recv(int fd, struct Message *dest) {
         return -1;
     }
 
-    Message_payloadFromBytes(dest, buffer);
+    Event_payloadFromBytes(dest, buffer);
     return 0;
 }
 
-int Message_send(int fd, u16 length, u8 type, u8 *payload) {
+int Event_send(int fd, u16 length, u8 type, u8 *payload) {
     errno = 0;
     
-    struct Message msg = {
+    struct Event msg = {
         .length  = length,
         .type    = type,
         .payload = payload 
     };
 
-    if (msg.length > MESSAGE_PAYLOAD_MAX) {
+    if (msg.length > EVENT_PAYLOAD_LENGTH) {
         errno = EPROTOVRF;
         return -1;
     }
 
-    size_t buffer_len = MESSAGE_HEADER_LENGTH + msg.length;
+    size_t buffer_len = EVENT_HEADER_LENGTH + msg.length;
     u8 *buffer = (u8 *) malloc(buffer_len);
 
-    Message_toBytes(&msg, buffer);
+    Event_toBytes(&msg, buffer);
 
     if (send(fd, buffer, buffer_len, 0) == -1) {
         errno = EPROTSEND;

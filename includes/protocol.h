@@ -3,67 +3,112 @@
 
 #include "types.h"
 
-#define MESSAGE_HEADER_LENGTH 3
-#define MESSAGE_PAYLOAD_MAX 256
+/* Lengths */
 
-/* Message Types */
+#define EVENT_HEADER_LENGTH 3
+#define EVENT_PAYLOAD_LENGTH 256
+#define NICK_LENGTH 20
+#define MESSAGE_LENGTH (EVENT_PAYLOAD_LENGTH - NICK_LENGTH - 1)
 
-#define MCON 0 // Request to connect
-#define MSCN 1 // Success to connect
-#define MFCN 2 // Fail to connect
-#define MDIS 3 // Request to disconnect
-#define MTAI 4 // Tái?
-#define MTOS 5 // Tô sim
-#define MMSG 6 // Receive / Send chat message
+/* Event Types */
+
+#define CON 0x00 // Connect
+#define SCN 0x01 // Success to Connect
+#define FCN 0x02 // Fail to Connect
+#define DIS 0x03 // Disconnection
+#define MSG 0x04 // Message
 
 /* Errors */
 
-#define EPROTLEN   0 // Fail to parse message length
-#define EPROTTYPE  1 // Fail to parse message type
-#define EPROTPAYL  2 // Fail to parse message payload
-#define EPROTOVRF  3 // Message payload overflow
-#define EPROTSEND  4 // Fail to send message
-#define EPROTEMPTY 5 // Receives an empty data (Possible disconnection)
+#define EPROTLENT 0x00 // Fail to parse event length
+#define EPROTTYPE 0x01 // Fail to parse event type
+#define EPROTPAYL 0x02 // Fail to parse event payload
+#define EPROTOVRF 0x03 // Event payload overflow
+#define EPROTSEND 0x04 // Fail to send event 
+#define EPROTEMPT 0x05 // Receives an empty data (Possible disconnection)
 
 /* FCN Reasons */
 
-#define RSNSERVERFULL 0 // The server is already full
-#define RSNINTERNAL   1 // An unexpected error occour in server
+#define ECONSAMENAME 0x00 // The client chosen nick is already taken
+#define ECONCHATFULL 0x01 // The chat is full
+#define ECONUNEXPECT 0x02 // An unexpected error occour in server
 
-struct Message {
+struct Event {
     u16 length;
     u8 type;
     u8 *payload;
 };
 
-struct CONMessage {
-    char nick[20];
+struct CONEvent {
+    char nick[NICK_LENGTH];
 };
 
-struct SCNMessage {
+struct SCNEvent {
     u8 id;
 };
 
-struct FCNMessage {
+struct FCNEvent {
     u8 reason;
 };
 
-struct DISMessage {
-    char nick[20];
+struct DISEvent {
+    char nick[NICK_LENGTH];
 };
 
-struct MSGMessage {
-    u8 author_id;
-    char nick[20];
-    char message[235];
+struct MSGEvent {
+    u8 authorid;
+    char authornick[NICK_LENGTH];
+    char message[MESSAGE_LENGTH];
 };
 
-void Message_headerFromBytes(struct Message *dest, u8 *buf);
-void Message_payloadFromBytes(struct Message *dest, u8 *buf);
+/*
+    Parse the Event Header from the buffer to `Event` struct.
 
-void Message_toBytes(struct Message *src, u8 *dest);
+    Parameters:
+    - `dest` The destionation pointer.
+    - `buf` Buffer which event is stored.
+*/
+void Event_headerFromBytes(struct Event *dest, u8 *buf);
 
-int Message_recv(int fd, struct Message *dest);
-int Message_send(int fd, u16 length, u8 type, u8 *payload);
+/*
+    Parse the Event Payload from the buffer to `Event` struct.
+
+    To parse the payload, the header must be already parsed, because the payload 
+    `length` must be know.
+
+    Parameters:
+    - `dest` The destionation pointer.
+    - `buf` Buffer which event is stored.
+*/
+void Event_payloadFromBytes(struct Event *dest, u8 *buf);
+
+/*
+    Convert an Event to a bytes buffer.
+
+    Parameters:
+    - `src` The event which wants to convert.
+    - `dest` The target buffer where event must be stored.
+*/
+void Event_toBytes(struct Event *src, u8 *dest);
+
+/*
+    Helper function to receive an Event from a socket.
+
+    Parameters:
+    - `fd` The target socket.
+    - `dest` The destination to receive the Event.
+*/
+int Event_recv(int fd, struct Event *dest);
+
+/*
+    Helper function to send an Event to a socket.
+
+    Parameters:
+    - `fd` The target socket.
+    - `length` The Event length.
+    - `type` The Event type.
+    - `payload` The Event payload.
+*/
+int Event_send(int fd, u16 length, u8 type, u8 *payload);
 
 #endif

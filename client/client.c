@@ -65,16 +65,16 @@ int Client_init(struct Client *client) {
 }
 
 int Client_join_chat(struct Client *client) {
-    struct CONMessage con;
+    struct CONEvent con;
     strcpy(con.nick, client->nick);
 
-    if (Message_send(client->fd, sizeof(con), MCON, (u8 *) &con) == -1) {
+    if (Event_send(client->fd, sizeof(con), CON, (u8 *) &con) == -1) {
         switch (errno) {
         case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: sent a too long message.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: sent a too long event.\n", __FILE__, __LINE__);
             return -1;
         case EPROTSEND:
-            fprintf(stderr, "%s:%d ERROR: fail to send message.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: fail to send event.\n", __FILE__, __LINE__);
             return -1;
         default:
             fprintf(stderr, "%s:%d ERROR: something went wrong: %d\n", __FILE__, __LINE__, errno);
@@ -84,20 +84,20 @@ int Client_join_chat(struct Client *client) {
 
     fprintf(stdout, "%s:%d INFO: joining the server...", __FILE__, __LINE__);
 
-    struct Message replymsg;
-    if (Message_recv(client->fd, &replymsg) == -1) {
+    struct Event status;
+    if (Event_recv(client->fd, &status) == -1) {
         switch (errno) {
-        case EPROTLEN:
-            fprintf(stderr, "%s:%d ERROR: fail to receive message length.\n", __FILE__, __LINE__);
+        case EPROTLENT:
+            fprintf(stderr, "%s:%d ERROR: fail to receive event length.\n", __FILE__, __LINE__);
             return -1;
         case EPROTTYPE:
-            fprintf(stderr, "%s:%d ERROR: fail to receive message type.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: fail to receive event type.\n", __FILE__, __LINE__);
             return -1;
         case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: receive a too long message.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: receive a too long event.\n", __FILE__, __LINE__);
             return -1;
         case EPROTPAYL:
-            fprintf(stderr, "%s:%d ERROR: fail to receive message payload.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: fail to receive event payload.\n", __FILE__, __LINE__);
             return -1;
         default:
             fprintf(stderr, "%s:%d ERROR: something went wrong: %d\n", __FILE__, __LINE__, errno);
@@ -105,16 +105,16 @@ int Client_join_chat(struct Client *client) {
         }       
     }
 
-    if (replymsg.type != MSCN && replymsg.type != MFCN) {
-        fprintf(stderr, "%s:%d ERROR: receive an unexpected message, receive '%#02x', but expected '%#02x' or '%#02x'", __FILE__, __LINE__, replymsg.type, MSCN, MFCN);
+    if (status.type != SCN && status.type != FCN) {
+        fprintf(stderr, "%s:%d ERROR: receive an unexpected status '%#02x', but expected '%#02x' or '%#02x'", __FILE__, __LINE__, status.type, SCN, FCN);
         return -1;
     }
 
-    if (replymsg.type == MFCN) {
-        struct FCNMessage *fcn = (struct FCNMessage *) replymsg.payload;
+    if (status.type == FCN) {
+        struct FCNEvent *fcn = (struct FCNEvent *) status.payload;
 
         switch (fcn->reason) {
-        case RSNSERVERFULL:
+        case ECONCHATFULL:
             fprintf(stderr, "%s:%d ERROR: fail to join the server: server is full!\n", __FILE__, __LINE__);
             break;
         default:
@@ -125,7 +125,7 @@ int Client_join_chat(struct Client *client) {
         return -1;
     }
 
-    struct SCNMessage *scn = (struct SCNMessage *) replymsg.payload;
+    struct SCNEvent *scn = (struct SCNEvent *) status.payload;
     client->id = scn->id;
 
     fprintf(stdout, "%s:%d INFO: joined to the server.\n", __FILE__, __LINE__);
@@ -133,21 +133,21 @@ int Client_join_chat(struct Client *client) {
     return 0;
 }
 
-int Client_handle_message(struct Client *client) {
-    struct Message msg;
-    if (Message_recv(client->fd, &msg) == -1) {
+int Client_handle_event(struct Client *client) {
+    struct Event event;
+    if (Event_recv(client->fd, &event) == -1) {
         switch (errno) {
-        case EPROTLEN:
-            fprintf(stderr, "%s:%d ERROR: fail to receive message length.\n", __FILE__, __LINE__);
+        case EPROTLENT:
+            fprintf(stderr, "%s:%d ERROR: fail to receive event length.\n", __FILE__, __LINE__);
             return -1;
         case EPROTTYPE:
-            fprintf(stderr, "%s:%d ERROR: fail to receive message type.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: fail to receive event type.\n", __FILE__, __LINE__);
             return -1;
         case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: receive a too long message.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: receive a too long event.\n", __FILE__, __LINE__);
             return -1;
         case EPROTPAYL:
-            fprintf(stderr, "%s:%d ERROR: fail to receive message payload.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: fail to receive event payload.\n", __FILE__, __LINE__);
             return -1;
         default:
             fprintf(stderr, "%s:%d ERROR: something went wrong: %d\n", __FILE__, __LINE__, errno);
@@ -155,31 +155,29 @@ int Client_handle_message(struct Client *client) {
         }
     }
 
-    fprintf(stdout, "%s:%d INFO: receives a message: ", __FILE__, __LINE__);
+    fprintf(stdout, "%s:%d INFO: receives an event: ", __FILE__, __LINE__);
 
-    switch (msg.type) {
-    case MMSG:
+    switch (event.type) {
+    case MSG:
     {
         printf("MSG\n");
 
-        struct MSGMessage *chat_message = (struct MSGMessage *) msg.payload;
-        printf("(%s) ~> ", chat_message->nick);
-
-        printf("%s\n", chat_message->message);
+        struct MSGEvent *chat_message = (struct MSGEvent *) event.payload;
+        printf("(%s) ~> %s\n", chat_message->authornick, chat_message->message);
     } break;
-    case MCON:
+    case CON:
     {
         printf("CON\n");
 
-        struct CONMessage *con = (struct CONMessage *) msg.payload;
+        struct CONEvent *con = (struct CONEvent *) event.payload;
 
         printf("%s:%d INFO: %s joined the server\n", __FILE__, __LINE__, con->nick);
     } break;
-    case MDIS:
+    case DIS:
     {
         printf("DIS\n");
 
-        struct DISMessage *dis = (struct DISMessage *) msg.payload;
+        struct DISEvent *dis = (struct DISEvent *) event.payload;
 
         printf("%s:%d INFO: %s left the server\n", __FILE__, __LINE__, dis->nick);
     } break;
@@ -189,9 +187,9 @@ int Client_handle_message(struct Client *client) {
 }
 
 int Client_send_message(struct Client *client) {
-    struct MSGMessage chat_message = { .author_id = client->id };
-    strcpy(chat_message.nick, client->nick);
-    fgets(chat_message.message, MESSAGE_PAYLOAD_MAX - sizeof(u8) - sizeof(chat_message.nick), stdin);
+    struct MSGEvent chat_message = { .authorid = client->id };
+    strcpy(chat_message.authornick, client->nick);
+    fgets(chat_message.message, MESSAGE_LENGTH, stdin);
 
     size_t mlen = strlen(chat_message.message);
     if (mlen == 0) {
@@ -203,13 +201,13 @@ int Client_send_message(struct Client *client) {
         chat_message.message[mlen - 1] = 0;
     }
 
-    if (Message_send(client->fd, sizeof(chat_message), MMSG, (u8 *) &chat_message) == -1) {
+    if (Event_send(client->fd, sizeof(chat_message), MSG, (u8 *) &chat_message) == -1) {
         switch (errno) {
         case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: send a too long message.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: send a too long event.\n", __FILE__, __LINE__);
             return -1;
         case EPROTSEND:
-            fprintf(stderr, "%s:%d ERROR: fail to send chat message.\n", __FILE__, __LINE__);
+            fprintf(stderr, "%s:%d ERROR: fail to send chat event.\n", __FILE__, __LINE__);
             return -1;
         default:
             fprintf(stderr, "%s:%d ERROR: something went wrong.\n", __FILE__, __LINE__);

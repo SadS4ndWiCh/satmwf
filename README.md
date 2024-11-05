@@ -10,6 +10,25 @@ The SATMWF (Super Application To Message With Friends) is the best software ever
 Basically, it has the server that is the primary instance that manages all client 
 connections and broadcasts the message sent by some client to others.
 
+### How the pieces fit togheter
+
+```
+                            + -------- +
+                    + ----- | PROTOCOL | ----- +
+                    |       + -------- +       |
+  + ---- +      + ------ +                + ------ +      + ---- +
+  | ROOM | ---- | SERVER |                | CLIENT | ---- |  UI  |
+  + ---- +      + ------ +                + ------ +      + ---- +
+```
+
+The project have three main pieces: `Protocol`, `Server` and `Client`.
+
+Both server and clients are independent from each other. The communication between 
+them can only be made with events emitted through the protocol.
+
+The server must be the source-of-truth. So, if client wants to know something, he 
+must asks to the server instead of speculate.
+
 ### Communication structure:
 
 The entire communication between client <-> server is event based. Every event uses 
@@ -49,7 +68,7 @@ The `Payload` field have a variable length defined in `Length` field.
 
 ```c
 struct CONEvent {
-    nick_t nick;
+    char nick[NICK_LENGTH];
 };
 ```
 
@@ -62,7 +81,7 @@ someone joined the chat. In both cases, the `nick` payload is sent.
 
 ```c
 struct SCNEvent {
-    clientid_t id;
+    u8 id;
 };
 ```
 
@@ -85,14 +104,16 @@ When a client wasn't able to join the chat, the server reply the `CON` event wit
 the reason to don't be able to join. The reasons can be:
 
 - `ECONSAMENAME`: The nick was already taken;
+- `ECONCHATFULL`: The chat is full;
 - `ECONUNEXPECT`: Some unexpected error occour;
 
 #### MSG (Message)
 
 ```c
 struct MSGEvent {
-    clientid_t from;
-    message_t message;
+    u8 authorid;
+    char authornick[NICK_LENGTH];
+    char message[MESSAGE_LENGTH];
 };
 ```
 
@@ -109,7 +130,7 @@ they sent.
 
 ```c
 struct DISEvent {
-    nick_t nick;
+    char nick[NICK_LENGTH];
 };
 ```
 
@@ -124,7 +145,7 @@ the chat), the server notify that someone left from the chat.
 
 ```
 + ------ +                     + ------ +                        + ------- +
-| Client |                     | SERVER |                        | CLIENTS |
+| CLIENT |                     | SERVER |                        | CLIENTS |
 + ------ +                     + ------ +                        + ------- +
     ||           CON               ||                                 ||
     || --------------------------> ||       + --------- +             ||
@@ -147,7 +168,7 @@ the chat), the server notify that someone left from the chat.
 
 ```
 + ------ +                     + ------ +                        + ------- +
-| Client |                     | SERVER |                        | CLIENTS |
+| CLIENT |                     | SERVER |                        | CLIENTS |
 + ------ +                     + ------ +                        + ------- +
     ||           MSG               ||                                 ||
     || --------------------------> ||              MSG                ||
@@ -160,7 +181,7 @@ the chat), the server notify that someone left from the chat.
 
 ```
 + ------ +                     + ------ +                        + ------- +
-| Client |                     | SERVER |                        | CLIENTS |
+| CLIENT |                     | SERVER |                        | CLIENTS |
 + ------ +                     + ------ +                        + ------- +
     ||                             ||                                 ||
     || <-----------//------------> ||              DIS                ||

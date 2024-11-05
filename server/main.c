@@ -33,7 +33,7 @@ int main(void) {
             if (ev.data.fd == server.fd) {
                 Server_handle_connection(&server);
             } else {
-                Server_handle_message(&server, ev.data.fd);
+                Server_handle_event(&server, ev.data.fd);
             }
         }
     }

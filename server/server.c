@@ -106,29 +106,29 @@ int Server_handle_connection(struct Server *server) {
     return 0;
 }
 
-int Server_handle_message(struct Server *server, int fd) {
-    struct Message msg;
-    if (Message_recv(fd, &msg) == -1) {
-        if (errno == EPROTEMPTY) {
-            msg.length  = 0;
-            msg.type    = MDIS;
-            msg.payload = NULL;
+int Server_handle_event(struct Server *server, int fd) {
+    struct Event event;
+    if (Event_recv(fd, &event) == -1) {
+        if (errno == EPROTEMPT) {
+            event.length  = 0;
+            event.type    = DIS;
+            event.payload = NULL;
         } else {
-            fprintf(stderr, "%s:%d ERROR: fail to receive message from fd: %d", __FILE__, __LINE__, fd);
+            fprintf(stderr, "%s:%d ERROR: fail to receive event from fd: %d", __FILE__, __LINE__, fd);
             return -1;
         }
     }
 
-    fprintf(stdout, "%s:%d INFO: receives a message: ", __FILE__, __LINE__);
+    fprintf(stdout, "%s:%d INFO: receives a event: ", __FILE__, __LINE__);
 
-    switch (msg.type) {
-    case MCON:
+    switch (event.type) {
+    case CON:
     {
         printf("CON\n");
 
         if (server->connected_count == SOCK_QUEUE_MAX) {
-            struct FCNMessage fcn = { .reason = RSNSERVERFULL };
-            if (Message_send(fd, sizeof(fcn), MFCN, (u8 *) &fcn) == -1) {
+            struct FCNEvent fcn = { .reason = ECONCHATFULL };
+            if (Event_send(fd, sizeof(fcn), FCN, (u8 *) &fcn) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to send FCN reply to: %d\n", __FILE__, __LINE__, fd);
                 return -1;
             }
@@ -138,17 +138,17 @@ int Server_handle_message(struct Server *server, int fd) {
             return 0;
         }
 
-        struct CONMessage *con = (struct CONMessage *) msg.payload;
+        struct CONEvent *con = (struct CONEvent *) event.payload;
         fprintf(stdout, "%s:%d INFO: new client '%s' joined to the server.\n", __FILE__, __LINE__, con->nick);
 
         // Append client connection to room array
         struct Conn conn = { .id = fd };
-        strcpy(conn.nick, con->nick);
+        strcpy(conn.nick, (char *) con->nick);
 
         server->room[server->connected_count++] = conn;
 
-        struct SCNMessage scn = { (u8) fd };
-        if (Message_send(fd, sizeof(scn), MSCN, (u8 *) &scn) == -1) {
+        struct SCNEvent scn = { (u8) fd };
+        if (Event_send(fd, sizeof(scn), SCN, (u8 *) &scn) == -1) {
             fprintf(stderr, "%s:%d ERROR: fail to send SCN reply to: %d.\n", __FILE__, __LINE__, fd);
             return -1;
         }
@@ -159,25 +159,25 @@ int Server_handle_message(struct Server *server, int fd) {
         for (int i = 0; i < server->connected_count; i++) {
             struct Conn client = server->room[i];
 
-            if (Message_send(client.id, sizeof(struct CONMessage), MCON, (u8 *) con) == -1) {
+            if (Event_send(client.id, sizeof(struct CONEvent), CON, (u8 *) con) == -1) {
                 fprintf(stderr, "%s:%d WARN: fail to notify client %s that a new client joined.\n", __FILE__, __LINE__, client.nick);
             }
         }
 
         return 0;
     } break;
-    case MDIS:
+    case DIS:
     {
         printf("DIS\n");
 
-        struct DISMessage dis;
+        struct DISEvent dis;
         for (int i = 0; i < server->connected_count; i++) {
             struct Conn client = server->room[i];
 
             if (client.id == fd) {
                 strcpy(dis.nick, client.nick);
 
-                for (; i < server->connected_count; i++) {
+               for (; i < server->connected_count; i++) {
                     if (i == server->connected_count - 1) break;
 
                     server->room[i] = server->room[i + 1];
@@ -203,19 +203,19 @@ int Server_handle_message(struct Server *server, int fd) {
         for (int i = 0; i < server->connected_count; i++) {
             struct Conn client = server->room[i];
 
-            if (Message_send(client.id, sizeof(struct DISMessage), MDIS, (u8 *) &dis) == -1) {
+            if (Event_send(client.id, sizeof(struct DISEvent), DIS, (u8 *) &dis) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to notify client '%s' that the client '%s' exit.\n", __FILE__, __LINE__, client.nick, dis.nick);
             }
         }
 
         return 0;
     } break;
-    case MMSG:
+    case MSG:
     {
         printf("MSG\n");
 
-        struct MSGMessage *chat_message = (struct MSGMessage *) msg.payload;
-        fprintf(stdout, "%s:%d INFO: client %d sent: %s\n", __FILE__, __LINE__, chat_message->author_id, chat_message->message);
+        struct MSGEvent *chat_message = (struct MSGEvent *) event.payload;
+        fprintf(stdout, "%s:%d INFO: client %d sent: %s\n", __FILE__, __LINE__, chat_message->authorid, chat_message->message);
 
         struct Conn sender = { .id = 0 };
         for (int i = 0; i < server->connected_count; i++) {
@@ -226,17 +226,16 @@ int Server_handle_message(struct Server *server, int fd) {
             }
         }
 
-        // TODO: a better code
-        if (sender.id == 0 && fd != 0) {
+        if (sender.id != fd) {
             fprintf(stderr, "%s:%d ERROR: sender not found: %d\n", __FILE__, __LINE__, fd);
             return -1;
         }
 
-        strcpy(chat_message->nick, sender.nick);
+        strcpy((char *) chat_message->authornick, sender.nick);
 
         for (int i = 0; i < server->connected_count; i++) {
             struct Conn conn = server->room[i];
-            if (Message_send(conn.id, sizeof(struct MSGMessage), MMSG, (u8 *) chat_message) == -1) {
+            if (Event_send(conn.id, sizeof(struct MSGEvent), MSG, (u8 *) chat_message) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to broadcast chat message to: %d\n", __FILE__, __LINE__, conn.id);
             }
         }
@@ -244,7 +243,7 @@ int Server_handle_message(struct Server *server, int fd) {
         return 0;
     }
     default:
-        fprintf(stderr, "%s:%d ERROR: unknow message was receive: %#02x\n", __FILE__, __LINE__, msg.type);
+        fprintf(stderr, "%s:%d ERROR: unknow event was receive: %#02x\n", __FILE__, __LINE__, event.type);
         return -1;
     }
 }
