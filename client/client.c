@@ -6,44 +6,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#include "sock.h"
+#include "tcp.h"
 #include "client.h"
 #include "protocol.h"
 
-int setup_sock(u32 host, u16 port) {
-    errno = 0;
-
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == -1) {
-        errno = ECREATESOCK;
-        return -1;
-    }
-
-    struct sockaddr_in addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(port),
-        .sin_addr = { htonl(host) }
-    };
-
-    if (connect(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        errno = ECONNECTSOCK;
-        return -1;
-    }
-
-    return sock;
-}
-
 int Client_init(struct Client *client) {
-    client->fd = setup_sock(client->host, client->port);
+    client->fd = TCP_createclient(client->host, client->port);
     if (client->fd == -1) {
-        switch (errno) {
-        case ECREATESOCK:
-            fprintf(stderr, "%s:%d ERROR: fail to create client socket.\n", __FILE__, __LINE__);
-            return -1;
-        case ECONNECTSOCK:
-            fprintf(stderr, "%s:%d ERROR: fail to connect to server.\n", __FILE__, __LINE__);
-            return -1;
-        }
+        fprintf(stderr, "%s:%d ERROR: %s.\n", __FILE__, __LINE__, TCP_geterr());
+        return -1;
     }
 
     client->pollfd = epoll_create1(0);

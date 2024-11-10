@@ -11,8 +11,8 @@ struct Conn {
 };
 
 struct Server {
-    u32 host;
-    u16 port;
+    char *host;
+    char *port;
     int fd;
 
     int pollfd;

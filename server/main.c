@@ -1,4 +1,3 @@
-#include <errno.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -9,12 +8,12 @@
 #include "protocol.h"
 
 int main(void) {
-    struct Server server = { .host = INADDR_LOOPBACK, .port = 3000 };
+    struct Server server = { .host = "localhost", .port = "3000" };
     if (Server_init(&server) == -1) {
         return 1;
     }
 
-    fprintf(stdout, "%s:%d INFO: server start running at :%d\n", __FILE__, __LINE__, server.port);
+    fprintf(stdout, "%s:%d INFO: server start running at %s:%s\n", __FILE__, __LINE__, server.host, server.port);
 
     struct epoll_event events[SOCK_QUEUE_MAX];
     while (1) {

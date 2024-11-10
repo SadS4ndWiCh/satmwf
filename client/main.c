@@ -4,15 +4,14 @@
 #include <sys/epoll.h>
 #include <netinet/in.h>
 
-#include "sock.h"
 #include "client.h"
 #include "protocol.h"
 
 int main(int argc, char **argv) {
     struct Client client = {
         .nick = DEFAULT_NICK,
-        .host = INADDR_LOOPBACK,
-        .port = 3000
+        .host = "localhost",
+        .port = "3000"
     };
 
     if (argc == 2) {

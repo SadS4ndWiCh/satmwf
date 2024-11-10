@@ -6,63 +6,15 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#include "poll.h"
-#include "sock.h"
+#include "tcp.h"
 #include "server.h"
 #include "protocol.h"
 
-int setup_sock(u32 host, u16 port) {
-    int sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == -1) {
-        errno = ECREATESOCK;
-        return -1;
-    }
-
-    int reuse = 1;
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == -1) {
-        errno = ESETOPTSOCK;
-        return -1;
-    }
-
-    struct sockaddr_in addr = {
-        .sin_family = AF_INET,
-        .sin_port = htons(port),
-        .sin_addr = { htonl(host) }
-    };
-
-    if (bind(sock, (struct sockaddr *) &addr, sizeof(addr)) == -1) {
-        errno = EBINDSOCK;
-        return -1;
-    }
-
-    if (listen(sock, SOCK_QUEUE_MAX) == -1) {
-        errno = ELISTENSOCK;
-        return -1;
-    }
-
-    return sock;
-}
-
 int Server_init(struct Server *server) {
-    server->fd = setup_sock(server->host, server->port);
+    server->fd = TCP_createlistener(server->host, server->port);
     if (server->fd == -1) {
-        switch (errno) {
-        case ECREATESOCK:
-            fprintf(stderr, "%s:%d ERROR: fail to create server socket.\n", __FILE__, __LINE__);
-            return -1;
-        case ESETOPTSOCK:
-            fprintf(stderr, "%s:%d ERROR: fail to set `SO_REUSEADDR` socket option.\n", __FILE__, __LINE__);
-            return -1;
-        case EBINDSOCK:
-            fprintf(stderr, "%s:%d ERROR: fail to bind address to socket.\n", __FILE__, __LINE__);
-            return -1;
-        case ELISTENSOCK:
-            fprintf(stderr, "%s:%d ERROR: fail to socket start listening for connections.\n", __FILE__, __LINE__);
-            return -1;
-        default:
-            fprintf(stderr, "%s:%d ERROR: something went wrong: %d.\n", __FILE__, __LINE__, errno);
-            return -1;
-        }
+        fprintf(stderr, "%s:%d ERROR: %s.\n", __FILE__, __LINE__, TCP_geterr());
+        return -1;
     }
 
     server->pollfd = epoll_create1(0);

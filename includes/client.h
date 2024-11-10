@@ -11,8 +11,8 @@ struct Client {
     u8 id;
     char nick[20];
 
-    u32 host;
-    u16 port;
+    char *host;
+    char *port;
     int fd;
 
     int pollfd;
