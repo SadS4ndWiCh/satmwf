@@ -111,4 +111,6 @@ int Event_recv(int fd, struct Event *dest);
 */
 int Event_send(int fd, u16 length, u8 type, u8 *payload);
 
+char *Event_geterr(void);
+
 #endif

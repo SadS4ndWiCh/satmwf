@@ -91,3 +91,20 @@ int Event_send(int fd, u16 length, u8 type, u8 *payload) {
     free(buffer);
     return 0;
 }
+
+char *Event_geterr(void) {
+    switch (errno) {
+    case EPROTLENT:
+        return "fail to receive event length";
+    case EPROTTYPE:
+        return "fail to receive event type";
+    case EPROTPAYL:
+        return "fail to receive event payload";
+    case EPROTOVRF:
+        return "too long event";
+    case EPROTSEND:
+        return "fail to send event";
+    default:
+        return "something went wrong";
+    }       
+}

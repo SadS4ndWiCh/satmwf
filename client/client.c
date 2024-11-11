@@ -40,38 +40,14 @@ int Client_join_chat(struct Client *client) {
     strcpy(con.nick, client->nick);
 
     if (Event_send(client->fd, sizeof(con), CON, (u8 *) &con) == -1) {
-        switch (errno) {
-        case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: sent a too long event.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTSEND:
-            fprintf(stderr, "%s:%d ERROR: fail to send event.\n", __FILE__, __LINE__);
-            return -1;
-        default:
-            fprintf(stderr, "%s:%d ERROR: something went wrong: %d\n", __FILE__, __LINE__, errno);
-            return -1;
-        }
+        fprintf(stderr, "%s:%d ERROR: %s.\n", __FILE__, __LINE__, Event_geterr());
+        return -1;
     }
 
     struct Event status;
     if (Event_recv(client->fd, &status) == -1) {
-        switch (errno) {
-        case EPROTLENT:
-            fprintf(stderr, "%s:%d ERROR: fail to receive event length.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTTYPE:
-            fprintf(stderr, "%s:%d ERROR: fail to receive event type.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: receive a too long event.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTPAYL:
-            fprintf(stderr, "%s:%d ERROR: fail to receive event payload.\n", __FILE__, __LINE__);
-            return -1;
-        default:
-            fprintf(stderr, "%s:%d ERROR: something went wrong: %d\n", __FILE__, __LINE__, errno);
-            return -1;
-        }       
+        fprintf(stderr, "%s:%d ERROR: %s.\n", __FILE__, __LINE__, Event_geterr());
+        return -1;
     }
 
     if (status.type != SCN && status.type != FCN) {
@@ -105,23 +81,8 @@ int Client_join_chat(struct Client *client) {
 int Client_handle_event(struct Client *client) {
     struct Event event;
     if (Event_recv(client->fd, &event) == -1) {
-        switch (errno) {
-        case EPROTLENT:
-            fprintf(stderr, "%s:%d ERROR: fail to receive event length.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTTYPE:
-            fprintf(stderr, "%s:%d ERROR: fail to receive event type.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: receive a too long event.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTPAYL:
-            fprintf(stderr, "%s:%d ERROR: fail to receive event payload.\n", __FILE__, __LINE__);
-            return -1;
-        default:
-            fprintf(stderr, "%s:%d ERROR: something went wrong: %d\n", __FILE__, __LINE__, errno);
-            return -1;
-        }
+        fprintf(stderr, "%s:%d ERROR: %s.\n", __FILE__, __LINE__, Event_geterr());
+        return -1;
     }
 
     fprintf(stdout, "%s:%d INFO: receives an event: ", __FILE__, __LINE__);
@@ -139,7 +100,6 @@ int Client_handle_event(struct Client *client) {
         printf("CON\n");
 
         struct CONEvent *con = (struct CONEvent *) event.payload;
-
         printf("%s:%d INFO: %s joined the server\n", __FILE__, __LINE__, con->nick);
     } break;
     case DIS:
@@ -147,7 +107,6 @@ int Client_handle_event(struct Client *client) {
         printf("DIS\n");
 
         struct DISEvent *dis = (struct DISEvent *) event.payload;
-
         printf("%s:%d INFO: %s left the server\n", __FILE__, __LINE__, dis->nick);
     } break;
     }
@@ -171,17 +130,8 @@ int Client_send_message(struct Client *client) {
     }
 
     if (Event_send(client->fd, sizeof(chat_message), MSG, (u8 *) &chat_message) == -1) {
-        switch (errno) {
-        case EPROTOVRF:
-            fprintf(stderr, "%s:%d ERROR: send a too long event.\n", __FILE__, __LINE__);
-            return -1;
-        case EPROTSEND:
-            fprintf(stderr, "%s:%d ERROR: fail to send chat event.\n", __FILE__, __LINE__);
-            return -1;
-        default:
-            fprintf(stderr, "%s:%d ERROR: something went wrong.\n", __FILE__, __LINE__);
-            return -1;
-        }
+        fprintf(stderr, "%s:%d ERROR: %s\n", __FILE__, __LINE__, Event_geterr());
+        return -1;
     }
 
     return 0;
