@@ -53,8 +53,6 @@ int Client_join_chat(struct Client *client) {
         }
     }
 
-    fprintf(stdout, "%s:%d INFO: joining the server...", __FILE__, __LINE__);
-
     struct Event status;
     if (Event_recv(client->fd, &status) == -1) {
         switch (errno) {
@@ -85,8 +83,8 @@ int Client_join_chat(struct Client *client) {
         struct FCNEvent *fcn = (struct FCNEvent *) status.payload;
 
         switch (fcn->reason) {
-        case ECONCHATFULL:
-            fprintf(stderr, "%s:%d ERROR: fail to join the server: server is full!\n", __FILE__, __LINE__);
+        case ECONSAMENAME:
+            fprintf(stderr, "%s:%d ERROR: fail to join the server: nick is already taken!\n", __FILE__, __LINE__);
             break;
         default:
             fprintf(stderr, "%s:%d ERROR: fail to join the server\n", __FILE__, __LINE__);
