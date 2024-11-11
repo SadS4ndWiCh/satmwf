@@ -104,7 +104,6 @@ When a client wasn't able to join the chat, the server reply the `CON` event wit
 the reason to don't be able to join. The reasons can be:
 
 - `ECONSAMENAME`: The nick was already taken;
-- `ECONCHATFULL`: The chat is full;
 - `ECONUNEXPECT`: Some unexpected error occour;
 
 #### MSG (Message)

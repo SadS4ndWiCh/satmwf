@@ -30,8 +30,7 @@
 /* FCN Reasons */
 
 #define ECONSAMENAME 0x00 // The client chosen nick is already taken
-#define ECONCHATFULL 0x01 // The chat is full
-#define ECONUNEXPECT 0x02 // An unexpected error occour in server
+#define ECONUNEXPECT 0x01 // An unexpected error occour in server
 
 struct Event {
     u16 length;
