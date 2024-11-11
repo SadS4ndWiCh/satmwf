@@ -1,14 +1,9 @@
 #ifndef __SERVER_H
 #define __SERVER_H
 
-#include "types.h"
+#include "room.h"
 
 #define SOCK_QUEUE_MAX 10
-
-struct Conn {
-    u8 id;
-    char nick[20];
-};
 
 struct Server {
     char *host;
@@ -17,8 +12,7 @@ struct Server {
 
     int pollfd;
 
-    u8 connected_count;
-    struct Conn room[SOCK_QUEUE_MAX];
+    struct Room room;
 };
 
 int Server_init(struct Server *server);

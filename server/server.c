@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 
 #include "tcp.h"
+#include "room.h"
 #include "server.h"
 #include "protocol.h"
 
@@ -31,6 +32,8 @@ int Server_init(struct Server *server) {
         fprintf(stderr, "%s:%d ERROR: fail to add server sock to poll.\n", __FILE__, __LINE__);
         return -1;
     }
+
+    Room_init(&server->room, ROOM_CAP);
     
     return 0;
 }
@@ -78,26 +81,29 @@ int Server_handle_event(struct Server *server, int fd) {
     {
         printf("CON\n");
 
-        if (server->connected_count == SOCK_QUEUE_MAX) {
-            struct FCNEvent fcn = { .reason = ECONCHATFULL };
-            if (Event_send(fd, sizeof(fcn), FCN, (u8 *) &fcn) == -1) {
-                fprintf(stderr, "%s:%d ERROR: fail to send FCN reply to: %d\n", __FILE__, __LINE__, fd);
-                return -1;
+        struct CONEvent *con = (struct CONEvent *) event.payload;
+
+        // Check if nick is already taken
+        for (size_t i = 0; i < server->room.len; i++) {
+            struct Conn conn = server->room.clients[i];
+
+            if (strcmp(conn.nick, con->nick) == 0) {
+                struct FCNEvent fcn = { ECONSAMENAME };
+
+                if (Event_send(fd, sizeof(fcn), FCN, (u8 *) &fcn) == -1) {
+                    fprintf(stderr, "%s:%d ERROR: fail to send FCN reply to: %d.\n", __FILE__, __LINE__, fd);
+                }
+
+                return 0;
             }
-
-            fprintf(stdout, "%s:%d INFO: fail to client join the server due it's full.\n", __FILE__, __LINE__);
-
-            return 0;
         }
 
-        struct CONEvent *con = (struct CONEvent *) event.payload;
+        if (Room_addconn(&server->room, fd, con->nick) == -1) {
+            fprintf(stdout, "%s:%d ERROR: fail to add '%s' into room.\n", __FILE__, __LINE__, con->nick);
+            return -1;
+        }
+
         fprintf(stdout, "%s:%d INFO: new client '%s' joined to the server.\n", __FILE__, __LINE__, con->nick);
-
-        // Append client connection to room array
-        struct Conn conn = { .id = fd };
-        strcpy(conn.nick, (char *) con->nick);
-
-        server->room[server->connected_count++] = conn;
 
         struct SCNEvent scn = { (u8) fd };
         if (Event_send(fd, sizeof(scn), SCN, (u8 *) &scn) == -1) {
@@ -108,8 +114,8 @@ int Server_handle_event(struct Server *server, int fd) {
         fprintf(stdout, "%s:%d INFO: sent SCN message to: %d.\n", __FILE__, __LINE__, fd);
 
         // Notify all clients that a new client joined
-        for (int i = 0; i < server->connected_count; i++) {
-            struct Conn client = server->room[i];
+        for (size_t i = 0; i < server->room.len; i++) {
+            struct Conn client = server->room.clients[i];
 
             if (Event_send(client.id, sizeof(struct CONEvent), CON, (u8 *) con) == -1) {
                 fprintf(stderr, "%s:%d WARN: fail to notify client %s that a new client joined.\n", __FILE__, __LINE__, client.nick);
@@ -122,24 +128,6 @@ int Server_handle_event(struct Server *server, int fd) {
     {
         printf("DIS\n");
 
-        struct DISEvent dis;
-        for (int i = 0; i < server->connected_count; i++) {
-            struct Conn client = server->room[i];
-
-            if (client.id == fd) {
-                strcpy(dis.nick, client.nick);
-
-               for (; i < server->connected_count; i++) {
-                    if (i == server->connected_count - 1) break;
-
-                    server->room[i] = server->room[i + 1];
-                }
-
-                server->connected_count--;
-                break;
-            }
-        }
-
         if (epoll_ctl(server->pollfd, EPOLL_CTL_DEL, fd, NULL) == -1) {
             fprintf(stderr, "%s:%d ERROR: fail to remove client from poll: %d\n", __FILE__, __LINE__, fd);
             return -1;
@@ -150,13 +138,27 @@ int Server_handle_event(struct Server *server, int fd) {
             return -1;
         }
 
+        struct DISEvent dis;
+        struct Conn disclient;
+
+        // Get the disconnected client
+        if (Room_getconn(&server->room, fd, &disclient) == -1) {
+            // The client wasn't in chat, so don't need to notify that someone left
+            return 0;
+        }
+
+        Room_delconn(&server->room, fd);
+
         fprintf(stdout, "%s:%d INFO: client was disconnected: %d\n", __FILE__, __LINE__, fd);
 
-        for (int i = 0; i < server->connected_count; i++) {
-            struct Conn client = server->room[i];
+        strcpy(dis.nick, disclient.nick);
 
-            if (Event_send(client.id, sizeof(struct DISEvent), DIS, (u8 *) &dis) == -1) {
-                fprintf(stderr, "%s:%d ERROR: fail to notify client '%s' that the client '%s' exit.\n", __FILE__, __LINE__, client.nick, dis.nick);
+        for (size_t i = 0; i < server->room.len; i++) {
+            struct Conn conn = server->room.clients[i];
+            if (conn.id == fd) continue;
+
+            if (Event_send(conn.id, sizeof(struct DISEvent), DIS, (u8 *) &dis) == -1) {
+                fprintf(stderr, "%s:%d ERROR: fail to notify client '%s' that the client '%s' exit.\n", __FILE__, __LINE__, conn.nick, dis.nick);
             }
         }
 
@@ -169,9 +171,10 @@ int Server_handle_event(struct Server *server, int fd) {
         struct MSGEvent *chat_message = (struct MSGEvent *) event.payload;
         fprintf(stdout, "%s:%d INFO: client %d sent: %s\n", __FILE__, __LINE__, chat_message->authorid, chat_message->message);
 
-        struct Conn sender = { .id = 0 };
-        for (int i = 0; i < server->connected_count; i++) {
-            struct Conn conn = server->room[i];
+        // Find out who is the sender
+        struct Conn sender;
+        for (size_t i = 0; i < server->room.len; i++) {
+            struct Conn conn = server->room.clients[i];
             if (conn.id == fd) {
                 sender = conn;
                 break;
@@ -185,8 +188,9 @@ int Server_handle_event(struct Server *server, int fd) {
 
         strcpy((char *) chat_message->authornick, sender.nick);
 
-        for (int i = 0; i < server->connected_count; i++) {
-            struct Conn conn = server->room[i];
+        // Broadcast message
+        for (size_t i = 0; i < server->room.len; i++) {
+            struct Conn conn = server->room.clients[i];
             if (Event_send(conn.id, sizeof(struct MSGEvent), MSG, (u8 *) chat_message) == -1) {
                 fprintf(stderr, "%s:%d ERROR: fail to broadcast chat message to: %d\n", __FILE__, __LINE__, conn.id);
             }
